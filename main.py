@@ -157,6 +157,11 @@ async def generate_exam_questions(request: ExamRequest) -> Dict:
     
     try:
         exam_questions = json.loads(response_text)
+
+        # Add student_id and class_id to the exam_questions document
+        exam_questions['student_id'] = request.student_id
+        exam_questions['class_id'] = request.class_id
+        
         # Store exam questions in MongoDB
      
         result = await exam_questions_collection.insert_one(exam_questions)
@@ -171,6 +176,31 @@ async def generate_exam_questions(request: ExamRequest) -> Dict:
         raise HTTPException(status_code=500, detail="Failed to parse JSON response.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+
+#get already generated exams questions 
+@app.get("/get_exam_questions/{student_id}")
+async def get_exam_questions(student_id: str, class_id: Optional[str] = None) -> Dict:
+    query = {"student_id": student_id}
+    if class_id:
+        query["class_id"] = class_id
+
+    exam_questions = await exam_questions_collection.find_one(query)
+    
+    if not exam_questions:
+        raise HTTPException(status_code=404, detail="Exam questions not found for this student.")
+    
+    # Convert ObjectId to string
+    exam_questions = convert_object_id(exam_questions)
+
+    return exam_questions
+
+
+
+
+
+
+
+
 
 class MarkRequest(BaseModel):
     question: Dict
