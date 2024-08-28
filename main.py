@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import requests
@@ -8,6 +9,18 @@ import motor.motor_asyncio
 from bson import ObjectId
 
 app = FastAPI()
+
+# CORS settings
+origins = ["*"]  # This will allow requests from any origin
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Set origins to ["*"] to allow all domains
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all HTTP headers
+)
+
 
 # MongoDB connection setup
 MONGO_DB_URI = 'mongodb+srv://edatech:vp47FCFbbNUosNED@edat.cjietoh.mongodb.net/?retryWrites=true&w=majority&appName=Edat'
