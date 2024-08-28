@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException 
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional
@@ -20,7 +20,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all HTTP headers
 )
-
 
 # MongoDB connection setup
 MONGO_DB_URI = 'mongodb+srv://edatech:vp47FCFbbNUosNED@edat.cjietoh.mongodb.net/?retryWrites=true&w=majority&appName=Edat'
@@ -108,6 +107,8 @@ class ExamRequest(BaseModel):
     exam_length: Optional[int] = None
     num_questions: int = 5
     total_marks: Optional[int] = None
+    student_id: str
+    class_id: str
 
 
 
@@ -118,6 +119,8 @@ async def generate_exam_questions(request: ExamRequest) -> Dict:
     - Examination Board: {request.exam_board}
     - Country: {request.country}
     - Subject: {request.subject}
+    - student_id: {request.student_id}
+    - class_id: {request.class_id}
     - Learning Objectives: {', '.join(request.learning_objectives)} #gets the learning objectives from the database
     - Number of Questions: {request.num_questions}
     {f'- Examination Length: {request.exam_length} minutes' if request.exam_length else ''}
@@ -173,6 +176,8 @@ class MarkRequest(BaseModel):
     question: Dict
     student_response: str
     student_name: str
+    student_id: str
+    class_id: str
 
 @app.post("/mark_student_response")
 async def mark_student_response(request: MarkRequest) -> Dict:
@@ -180,6 +185,8 @@ async def mark_student_response(request: MarkRequest) -> Dict:
     Mark the following student response based on the given question and mark scheme. Never award marks for things like neatness and presentation:
 
     Student Name: {request.student_name}
+    Student Id: {request.student_id}
+    Class Id: {request.class_id}
     Question: {request.question['text']}
     Marks available: {request.question['marks']}
     Mark Scheme: {request.question['mark_scheme']}
@@ -211,6 +218,8 @@ async def mark_student_response(request: MarkRequest) -> Dict:
         # Prepare the data to be stored in the database
         student_response_data = {
             "student_name": request.student_name,
+            "student_id": request.student_id,
+            "class_id": request.class_id,
             "question": request.question,
             "student_response": request.student_response,
             "marks_awarded": response_data.get("marks_awarded"),
@@ -236,6 +245,8 @@ class ProcessExamRequest(BaseModel):
     exam_questions: Dict
     student_responses: List[str]
     student_name: str
+    student_id: str
+    class_id: str
 
 @app.post("/process_exam_responses")
 async def process_exam_responses(request: ProcessExamRequest) -> Dict:
@@ -257,7 +268,7 @@ async def process_exam_responses(request: ProcessExamRequest) -> Dict:
         question_objectives = question.get('learning_objectives', [])
 
         marking_result = await mark_student_response(MarkRequest(
-            question=question, student_response=response, student_name=request.student_name))
+            question=question, student_response=response, student_name=request.student_name, student_id=request.student_id, class_id=request.class_id))
         results[question_number] = marking_result
         marks_awarded = marking_result.get('marks_awarded', 0)
         total_marks += marks_awarded
@@ -276,6 +287,8 @@ async def process_exam_responses(request: ProcessExamRequest) -> Dict:
 
     exam_result =  {
         "student_name": request.student_name,
+        "student_id": request.student_id,
+        "class_id": request.class_id,
         "total_marks": total_marks,
         "results_per_question": results,
         "performance_per_objective": performance_per_objective
