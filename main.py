@@ -358,9 +358,41 @@ async def process_exam_responses(request: ProcessExamRequest) -> Dict:
 
     return exam_result
    
+#get all exams ids 
+@app.get("/get_exam_ids")
+async def get_exam_ids() -> Dict[str, List[str]]:
+    try:
+        # Query the database to find all exam records
+        exams = await exam_questions_collection.find({}, {"_id": 1}).to_list(length=None)
+        
+        # Extract the exam IDs from the results
+        exam_ids = [str(exam["_id"]) for exam in exams]
+
+        # Return the list of exam IDs
+        return {"exam_ids": exam_ids}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
 
+#get one exam id 
+@app.get("/get_exam_by_id/{exam_id}")
+async def get_exam_by_id(exam_id: str) -> Dict:
+    try:
+        # Convert the exam_id string to an ObjectId
+        exam_object_id = ObjectId(exam_id)
+        
+        # Query the database to find the exam by its ObjectId
+        exam = await exam_questions_collection.find_one({"_id": exam_object_id})
+        
+        if not exam:
+            raise HTTPException(status_code=404, detail="Exam not found")
 
+        # Convert ObjectId fields to strings
+        exam = convert_object_id(exam)
 
-
-
+        # Return the exam document
+        return exam
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
