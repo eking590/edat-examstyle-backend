@@ -100,6 +100,7 @@ def api_request(messages: List[Dict[str, str]], max_tokens: int = 2000) -> str:
         raise HTTPException(status_code=500, detail=f"API request failed: {e}")
 
 class ExamRequest(BaseModel):
+    role: str  # Role can be 'parent' or 'teacher
     exam_board: str
     country: str
     learning_objectives: List[str]
@@ -107,13 +108,19 @@ class ExamRequest(BaseModel):
     exam_length: Optional[int] = None
     num_questions: int = 5
     total_marks: Optional[int] = None
-    student_id: str
-    class_id: str
+    student_id: Optional[str] = None  # Student ID should be optional
+    class_id: Optional[str] = None  # Class ID should be optional
 
 
 
 @app.post("/generate_exam_questions")
 async def generate_exam_questions(request: ExamRequest) -> Dict:
+     # Set student_id to None if the role is teacher, and set class_id to None if the role is parent
+    if request.role == "teacher":
+        request.student_id = None
+    elif request.role == "parent":
+        request.class_id = None
+
     context = f"""
     Generate {request.num_questions} examination-style questions for the following specifications:
     - Examination Board: {request.exam_board}
@@ -164,6 +171,14 @@ async def generate_exam_questions(request: ExamRequest) -> Dict:
         
         # Store exam questions in MongoDB
      
+
+        # Include student_id and class_id based on the role
+        if request.role == "teacher":
+            exam_questions['class_id'] = request.class_id
+        elif request.role == "parent":
+            exam_questions['student_id'] = request.student_id
+
+
         result = await exam_questions_collection.insert_one(exam_questions)
     
         # Convert ObjectId to string
@@ -178,11 +193,22 @@ async def generate_exam_questions(request: ExamRequest) -> Dict:
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
 #get already generated exams questions 
-@app.get("/get_exam_questions/{student_id}")
-async def get_exam_questions(student_id: str, class_id: Optional[str] = None) -> Dict:
-    query = {"student_id": student_id}
-    if class_id:
-        query["class_id"] = class_id
+@app.get("/get_exam_questions")
+async def get_exam_questions(role: str, student_id: Optional[str] = None, class_id: Optional[str] = None) -> Dict:
+    query = {}
+
+    # Adjust the query based on the role
+    if role == "teacher":
+        if not class_id:
+            raise HTTPException(status_code=400, detail="class_id is required for teachers.")
+        query["class_id"] = class_id  # Teachers should provide class_id
+    elif role == "parent":
+        if not student_id:
+            raise HTTPException(status_code=400, detail="student_id is required for parents.")
+        query["student_id"] = student_id  # Parents should provide student_id
+    else:
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'parent' or 'teacher'.")
+
 
     exam_questions = await exam_questions_collection.find_one(query)
     
